@@ -1,8 +1,12 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_getx_sns_login/screens/profile_screen.dart';
+import 'package:flutter_getx_sns_login/src/authentication.dart';
 import 'package:get/get.dart';
 
 class LoginScreen extends StatelessWidget {
   final _loginTap = 0;
+  final _isLoging = false;
   final _loginFormKey = GlobalKey<FormState>();
   final _signUpFormKey = GlobalKey<FormState>();
   final ButtonController buttonController = Get.put(ButtonController());
@@ -12,10 +16,12 @@ class LoginScreen extends StatelessWidget {
     Tab(text: '회원가입'),
   ];
 
-  TextEditingController _loginEmailController = new TextEditingController();
-  TextEditingController _loginPasswordController = new TextEditingController();
-  TextEditingController _signUpEmailController = new TextEditingController();
-  TextEditingController _signUpPasswordController = new TextEditingController();
+  final TextEditingController _loginEmailController = TextEditingController();
+  final TextEditingController _loginPasswordController =
+      TextEditingController();
+  final TextEditingController _signUpEmailController = TextEditingController();
+  final TextEditingController _signUpPasswordController =
+      TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -23,45 +29,53 @@ class LoginScreen extends StatelessWidget {
       length: 2,
       initialIndex: _loginTap,
       child: Scaffold(
-        body: SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          child: Container(
-            height: Get.height,
-            width: Get.width,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  child: Theme(
-                    data: ThemeData().copyWith(
-                      splashColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
-                    ),
-                    child: TabBar(
-                      indicatorColor: Colors.transparent,
-                      labelColor: Colors.black,
-                      labelStyle:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 40),
-                      unselectedLabelColor: Colors.grey,
-                      unselectedLabelStyle: TextStyle(
-                          fontWeight: FontWeight.normal, fontSize: 30),
-                      tabs: _loginTabs,
-                    ),
-                  ),
+        body: GestureDetector(
+            onTap: () {
+              FocusScope.of(context).unfocus();
+            },
+            child: _bodyWidget(context)),
+      ),
+    );
+  }
+
+  Widget _bodyWidget(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      child: Container(
+        height: Get.height,
+        width: Get.width,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              child: Theme(
+                data: ThemeData().copyWith(
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
                 ),
-                Container(
-                  height: 500,
-                  child: TabBarView(
-                    physics: NeverScrollableScrollPhysics(),
-                    children: [
-                      _loginTabBarView(),
-                      _signUpTabBarView(),
-                    ],
-                  ),
+                child: TabBar(
+                  indicatorColor: Colors.transparent,
+                  labelColor: Colors.black,
+                  labelStyle:
+                      TextStyle(fontWeight: FontWeight.bold, fontSize: 40),
+                  unselectedLabelColor: Colors.grey,
+                  unselectedLabelStyle:
+                      TextStyle(fontWeight: FontWeight.normal, fontSize: 30),
+                  tabs: _loginTabs,
                 ),
-              ],
+              ),
             ),
-          ),
+            Container(
+              height: 500,
+              child: TabBarView(
+                physics: NeverScrollableScrollPhysics(),
+                children: [
+                  _loginTabBarView(),
+                  _signUpTabBarView(),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -91,9 +105,27 @@ class LoginScreen extends StatelessWidget {
           SizedBox(
             height: 15.0,
           ),
-          _loginButton(),
-          _googleLoginButton(),
-          _facebookLoginButton(),
+          FutureBuilder(
+            future: Authentication.initializeFirebase(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Text('Error initializing Firebase');
+              } else if (snapshot.connectionState == ConnectionState.done) {
+                if (_isLoging) {
+                  return CircularProgressIndicator();
+                } else {
+                  return Column(
+                    children: [
+                      _loginButton(),
+                      _googleLoginButton(),
+                      _facebookLoginButton(),
+                    ],
+                  );
+                }
+              }
+              return CircularProgressIndicator();
+            },
+          ),
         ],
       ),
     );
@@ -161,7 +193,9 @@ class LoginScreen extends StatelessWidget {
   Widget _googleLoginButton() => MaterialButton(
         color: Colors.black,
         shape: StadiumBorder(),
-        onPressed: () {},
+        onPressed: () {
+          _googleSignIn();
+        },
         elevation: 5.0,
         child: Container(
           width: 200,
@@ -317,6 +351,28 @@ class LoginScreen extends StatelessWidget {
           }
         },
       );
+
+  Future<void> _googleSignIn() async {
+    User? user = await Authentication.signInWithGoogle();
+
+    if (user != null) {
+      Get.off(
+        () => ProfileScreen(),
+      );
+    }
+  }
+
+  Future<void> _facebookSignIn() async {
+    try {
+      User? user = await Authentication.signInWithFacebook();
+
+      if (user != null) {
+        Get.off(
+          () => ProfileScreen(),
+        );
+      }
+    } catch (e) {}
+  }
 }
 
 class ButtonController extends GetxController {

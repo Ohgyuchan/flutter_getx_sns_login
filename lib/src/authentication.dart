@@ -4,22 +4,25 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_getx_sns_login/screens/profile_screen.dart';
+import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 
 class Authentication {
-  static late LoginType _loginType = LoginType.Google;
-  static Future<FirebaseApp> initializeFirebase({
-    required BuildContext context,
-  }) async {
+  static late LoginType _loginType;
+  static Future<FirebaseApp> initializeFirebase() async {
     FirebaseApp firebaseApp = await Firebase.initializeApp();
-
+    await FirebaseAppCheck.instance
+        .activate(webRecaptchaSiteKey: 'recaptcha-v3-site-key');
     User? user = FirebaseAuth.instance.currentUser;
 
     if (user != null) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => ProfileScreen(),
-        ),
+      var userInfo = user.providerData[0];
+      userInfo.providerId == 'facebook.com'
+          ? _loginType = LoginType.Facebook
+          : _loginType = LoginType.Google;
+      Get.off(
+        () => ProfileScreen(),
       );
     }
 
@@ -40,6 +43,11 @@ class Authentication {
 
     final User? user = userCredential.user;
 
+    if (user != null && userCredential.additionalUserInfo!.isNewUser) {
+      // FirebaseRepository.createUser(user.uid.toString(), user.email.toString(),
+      //     user.displayName.toString(), user.photoURL.toString());
+    }
+
     return user;
   }
 
@@ -57,7 +65,7 @@ class Authentication {
     }
   }
 
-  static Future<User?> signInWithGoogle({required BuildContext context}) async {
+  static Future<User?> signInWithGoogle() async {
     _loginType = LoginType.Google;
     FirebaseAuth auth = FirebaseAuth.instance;
     User? user;
@@ -70,6 +78,14 @@ class Authentication {
             await auth.signInWithPopup(authProvider);
 
         user = userCredential.user;
+
+        if (user != null && userCredential.additionalUserInfo!.isNewUser) {
+          // FirebaseRepository.createUser(
+          //     user.uid.toString(),
+          //     user.email.toString(),
+          //     user.displayName.toString(),
+          //     user.photoURL.toString());
+        }
       } catch (e) {
         print(e);
       }
@@ -88,33 +104,17 @@ class Authentication {
           idToken: googleSignInAuthentication.idToken,
         );
 
-        try {
-          final UserCredential userCredential =
-              await auth.signInWithCredential(credential);
+        final UserCredential userCredential =
+            await auth.signInWithCredential(credential);
 
-          user = userCredential.user;
-        } on FirebaseAuthException catch (e) {
-          if (e.code == 'account-exists-with-different-credential') {
-            ScaffoldMessenger.of(context).showSnackBar(
-              Authentication.customSnackBar(
-                content:
-                    'The account already exists with a different credential.',
-              ),
-            );
-          } else if (e.code == 'invalid-credential') {
-            ScaffoldMessenger.of(context).showSnackBar(
-              Authentication.customSnackBar(
-                content:
-                    'Error occurred while accessing credentials. Try again.',
-              ),
-            );
-          }
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            Authentication.customSnackBar(
-              content: 'Error occurred using Google Sign-In. Try again.',
-            ),
-          );
+        user = userCredential.user;
+
+        if (user != null && userCredential.additionalUserInfo!.isNewUser) {
+          // FirebaseRepository.createUser(
+          //     user.uid.toString(),
+          //     user.email.toString(),
+          //     user.displayName.toString(),
+          //     user.photoURL.toString());
         }
       }
       return user;
@@ -149,4 +149,4 @@ class Authentication {
   }
 }
 
-enum LoginType { Google, Facebook, Kakao, Naver }
+enum LoginType { Email, Google, Facebook, Kakao, Naver }
