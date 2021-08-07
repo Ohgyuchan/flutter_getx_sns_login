@@ -38,6 +38,7 @@ android {
         applicationId "com.example.flutter_getx_sns_login"
         minSdkVersion 16
         targetSdkVersion 30
+        multiDexEnabled true
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
